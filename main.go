@@ -14,6 +14,7 @@ import (
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p/core/discovery"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 
@@ -150,7 +151,9 @@ func main() {
 	}
 	host, err := libp2p.New(
 		libp2p.Identity(prvKey),
-		libp2p.ListenAddrs([]multiaddr.Multiaddr(config.ListenAddresses)...))
+		libp2p.ListenAddrs([]multiaddr.Multiaddr(config.ListenAddresses)...),
+		libp2p.NATPortMap(),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -165,8 +168,11 @@ func main() {
 
 	ctx := context.Background()
 	log.Println("New Dht")
-	dhtMode := dht.Mode(dht.ModeServer)
-	kademliaDHT, err := dht.New(ctx, host, dhtMode)
+	kademliaDHT, err := dht.New(
+		ctx,
+		host,
+		dht.ProtocolPrefix(protocol.ID(config.ProtocolID)),
+		dht.Mode(dht.ModeServer))
 	if err != nil {
 		panic(err)
 	}
@@ -177,6 +183,7 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
+	fmt.Println("Boostrap address")
 	for _, peerAddr := range config.BootstrapPeers {
 		log.Println(peerAddr.String())
 	}
@@ -212,7 +219,11 @@ func main() {
 	log.Println("Successfully announced!")
 
 	log.Println("Searching for other peers...")
-	peerChan, err := routingDiscovery.FindPeers(ctx, config.RendezvousString)
+	peerChan, err := routingDiscovery.FindPeers(
+		ctx,
+		config.RendezvousString,
+		discovery.Limit(100),
+	)
 	if err != nil {
 		panic(err)
 	}
