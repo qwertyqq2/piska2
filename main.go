@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,18 +23,70 @@ import (
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/multiformats/go-multiaddr"
+	maddr "github.com/multiformats/go-multiaddr"
 )
+
+type addrList []maddr.Multiaddr
+
+func (al *addrList) String() string {
+	strs := make([]string, len(*al))
+	for i, addr := range *al {
+		strs[i] = addr.String()
+	}
+	return strings.Join(strs, ",")
+}
+
+func (al *addrList) Set(value string) error {
+	addr, err := maddr.NewMultiaddr(value)
+	if err != nil {
+		return err
+	}
+	*al = append(*al, addr)
+	return nil
+}
+
+func StringsToAddrs(addrStrings []string) (maddrs []maddr.Multiaddr, err error) {
+	for _, addrString := range addrStrings {
+		addr, err := maddr.NewMultiaddr(addrString)
+		if err != nil {
+			return maddrs, err
+		}
+		maddrs = append(maddrs, addr)
+	}
+	return
+}
+
+type Config struct {
+	RendezvousString string
+	BootstrapPeers   addrList
+	ListenAddresses  addrList
+	ProtocolID       string
+}
+
+func ParseFlags() (Config, error) {
+	config := Config{}
+	flag.StringVar(&config.RendezvousString, "myrandevy", "meet me here",
+		"Unique string to identify group of nodes. Share this with your friends to let them connect with you")
+	flag.Var(&config.BootstrapPeers, "peer", "Adds a peer multiaddress to the bootstrap list")
+	flag.Var(&config.ListenAddresses, "listen", "Adds a multiaddress to the listen list")
+	flag.StringVar(&config.ProtocolID, "pid", "/chat/1.1.0", "Sets a protocol id for stream headers")
+	flag.Parse()
+
+	if len(config.BootstrapPeers) == 0 {
+		config.BootstrapPeers = dht.DefaultBootstrapPeers
+	}
+
+	return config, nil
+}
 
 func handleStream(stream network.Stream) {
 	log.Println("Got a new stream!")
 
-	// Create a buffer stream for non blocking read and write.
 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 
 	go readData(rw)
 	go writeData(rw)
 
-	// 'stream' will stay open until you close it (or the other side closes it).
 }
 
 func readData(rw *bufio.ReadWriter) {
@@ -91,8 +144,6 @@ func main() {
 		return
 	}
 
-	// libp2p.New constructs a new libp2p Host. Other options can be added
-	// here.
 	prvKey, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, rand.Reader)
 	if err != nil {
 		log.Fatal(err)
@@ -109,14 +160,9 @@ func main() {
 		fmt.Println(a.String())
 	}
 
-	// Set a function as stream handler. This function is called when a peer
-	// initiates a connection and starts a stream with this peer.
 	log.Println("Handler stream set")
 	host.SetStreamHandler(protocol.ID(config.ProtocolID), handleStream)
-	// Start a DHT, for use in peer discovery. We can't just make a new DHT
-	// client because we want each peer to maintain its own local copy of the
-	// DHT, so that the bootstrapping node of the DHT can go down without
-	// inhibiting future peer discovery.
+
 	ctx := context.Background()
 	log.Println("New Dht")
 	dhtMode := dht.Mode(dht.ModeServer)
@@ -125,15 +171,11 @@ func main() {
 		panic(err)
 	}
 
-	// Bootstrap the DHT. In the default configuration, this spawns a Background
-	// thread that will refresh the peer table every five minutes.
 	log.Println("Bootstrapping the DHT")
 	if err = kademliaDHT.Bootstrap(ctx); err != nil {
 		panic(err)
 	}
 
-	// Let's connect to the bootstrap nodes first. They will tell us about the
-	// other nodes in the network.
 	var wg sync.WaitGroup
 	for _, peerAddr := range config.BootstrapPeers {
 		log.Println(peerAddr.String())
@@ -164,15 +206,11 @@ func main() {
 	wg.Wait()
 	time.Sleep(3 * time.Second)
 
-	// We use a rendezvous point "meet me here" to announce our location.
-	// This is like telling your friends to meet you at the Eiffel Tower.
 	log.Println("Announcing ourselves...")
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 	dutil.Advertise(ctx, routingDiscovery, config.RendezvousString)
 	log.Println("Successfully announced!")
 
-	// Now, look for others who have announced
-	// This is like your friend telling you the location to meet you.
 	log.Println("Searching for other peers...")
 	peerChan, err := routingDiscovery.FindPeers(ctx, config.RendezvousString)
 	if err != nil {
