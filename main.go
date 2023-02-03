@@ -167,10 +167,11 @@ func main() {
 
 	ctx := context.Background()
 	log.Println("New Dht")
+	fmt.Println("Protocol Id", protocol.ID(config.ProtocolID))
 	kademliaDHT, err := dht.New(
 		ctx,
 		host,
-		dht.ProtocolPrefix(protocol.ID(config.ProtocolID)),
+		//dht.ProtocolPrefix(protocol.ID(config.ProtocolID)),
 		dht.Mode(dht.ModeServer))
 	if err != nil {
 		panic(err)
@@ -247,6 +248,14 @@ func main() {
 		log.Println("Connected to:", peer)
 	}
 	log.Println("Chan closed")
-
+	// var peerInfos []string
+	// for _, peerID := range kademliaDHT.RoutingTable().ListPeers() {
+	// 	peerInfo := host.Peerstore().PeerInfo(peerID)
+	// 	peerInfos = append(peerInfos, peerInfo.Addrs[0].String())
+	// }
+	// for _, pif := range peerInfos {
+	// 	fmt.Println(pif)
+	// }
+	log.Println("Wait")
 	select {}
 }
