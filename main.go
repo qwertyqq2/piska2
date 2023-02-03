@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -211,7 +210,6 @@ func main() {
 		}()
 	}
 	wg.Wait()
-	time.Sleep(3 * time.Second)
 
 	log.Println("Announcing ourselves...")
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
