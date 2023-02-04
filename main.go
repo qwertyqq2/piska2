@@ -137,6 +137,14 @@ func main() {
 		panic(err)
 	}
 
+	f, err := os.OpenFile("text.log",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+	defer f.Close()
+	logger := log.New(f, "log: ", log.LstdFlags)
+
 	if *help {
 		fmt.Println("This program demonstrates a simple p2p chat application using libp2p")
 		fmt.Println()
@@ -161,17 +169,17 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	log.Println("Host created. We are:", host.ID())
-	log.Printf("'-peer %s/p2p/%s' on another console.\n", host.Addrs()[0].String(), host.ID().Pretty())
+	logger.Println("Host created. We are:", host.ID())
+	logger.Printf("'-peer %s/p2p/%s' on another console.\n", host.Addrs()[0].String(), host.ID().Pretty())
 	for _, a := range host.Addrs() {
 		fmt.Println(a.String())
 	}
 
-	log.Println("Handler stream set")
+	logger.Println("Handler stream set")
 	host.SetStreamHandler(protocol.ID(config.ProtocolID), handleStream)
 
 	ctx := context.Background()
-	log.Println("New Dht")
+	logger.Println("New Dht")
 	kademliaDHT, err := dht.New(
 		ctx,
 		host,
@@ -181,15 +189,17 @@ func main() {
 		panic(err)
 	}
 
-	log.Println("Bootstrapping the DHT")
+	logger.Println("Bootstrapping the DHT")
 	if err = kademliaDHT.Bootstrap(ctx); err != nil {
 		panic(err)
 	}
 
+	fmt.Println("Loading peers...")
+
 	var wg sync.WaitGroup
-	fmt.Println("Boostrap address")
+	logger.Println("Boostrap address")
 	for _, peerAddr := range config.BootstrapPeers {
-		log.Println(peerAddr.String())
+		logger.Println(peerAddr.String())
 	}
 	for _, peerAddr := range config.BootstrapPeers {
 		peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
@@ -197,9 +207,9 @@ func main() {
 		go func() {
 			defer wg.Done()
 			if err := host.Connect(ctx, *peerinfo); err != nil {
-				log.Println(err)
+				logger.Println(err)
 			} else {
-				log.Println("Connection established with bootstrap node:", *peerinfo)
+				logger.Println("Connection established with bootstrap node:", *peerinfo)
 				// stream, err := host.NewStream(ctx, peerinfo.ID, protocol.ID(config.ProtocolID))
 
 				// if err != nil {
@@ -216,12 +226,12 @@ func main() {
 	}
 	wg.Wait()
 
-	log.Println("Announcing ourselves...")
+	logger.Println("Announcing ourselves...")
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 	dutil.Advertise(ctx, routingDiscovery, config.RendezvousString)
-	log.Println("Successfully announced!")
+	logger.Println("Successfully announced!")
 
-	log.Println("Searching for other peers...")
+	logger.Println("Searching for other peers...")
 	peerChan, err := routingDiscovery.FindPeers(
 		ctx,
 		config.RendezvousString,
@@ -235,13 +245,13 @@ func main() {
 		if peer.ID == host.ID() {
 			continue
 		}
-		log.Println("Found peer:", peer)
+		logger.Println("Found peer:", peer)
 
-		log.Println("Connecting to:", peer)
+		logger.Println("Connecting to:", peer)
 		stream, err := host.NewStream(ctx, peer.ID, protocol.ID(config.ProtocolID))
 
 		if err != nil {
-			log.Println("Connection failed:", err)
+			logger.Println("Connection failed:", err)
 			continue
 		} else {
 			rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
@@ -249,16 +259,16 @@ func main() {
 			go writeData(rw)
 			go readData(rw)
 		}
-		log.Println("Connected to:", peer)
+		logger.Println("Connected to:", peer)
 	}
-	log.Println("Chan closed")
+	logger.Println("Chan closed")
 	var peerInfos []string
 	for _, peerID := range kademliaDHT.RoutingTable().ListPeers() {
 		peerInfo := host.Peerstore().PeerInfo(peerID)
 		peerInfos = append(peerInfos, peerInfo.Addrs[0].String())
 	}
 	for _, pif := range peerInfos {
-		fmt.Println(pif)
+		logger.Println(pif)
 	}
 	log.Println("Wait")
 	select {}
