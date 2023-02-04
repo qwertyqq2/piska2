@@ -20,6 +20,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/multiformats/go-multiaddr"
@@ -150,6 +151,10 @@ func main() {
 	}
 	host, err := libp2p.New(
 		libp2p.Identity(prvKey),
+		libp2p.DefaultConnectionManager,
+		libp2p.ChainOptions(
+			libp2p.Transport(tcp.NewTCPTransport),
+		),
 		libp2p.ListenAddrs([]multiaddr.Multiaddr(config.ListenAddresses)...),
 		libp2p.NATPortMap(),
 	)
@@ -248,14 +253,17 @@ func main() {
 		log.Println("Connected to:", peer)
 	}
 	log.Println("Chan closed")
-	// var peerInfos []string
-	// for _, peerID := range kademliaDHT.RoutingTable().ListPeers() {
-	// 	peerInfo := host.Peerstore().PeerInfo(peerID)
-	// 	peerInfos = append(peerInfos, peerInfo.Addrs[0].String())
-	// }
-	// for _, pif := range peerInfos {
-	// 	fmt.Println(pif)
-	// }
+	var peerInfos []string
+	for _, peerID := range kademliaDHT.RoutingTable().ListPeers() {
+		peerInfo := host.Peerstore().PeerInfo(peerID)
+		peerInfos = append(peerInfos, peerInfo.Addrs[0].String())
+	}
+	for _, pif := range peerInfos {
+		fmt.Println(pif)
+	}
 	log.Println("Wait")
 	select {}
 }
+
+///ip4/192.168.202.229/tcp/7000
+///ip4/127.0.0.1/tcp/7000
