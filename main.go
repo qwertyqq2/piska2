@@ -172,11 +172,10 @@ func main() {
 
 	ctx := context.Background()
 	log.Println("New Dht")
-	fmt.Println("Protocol Id", protocol.ID(config.ProtocolID))
 	kademliaDHT, err := dht.New(
 		ctx,
 		host,
-		//dht.ProtocolPrefix(protocol.ID(config.ProtocolID)),
+		//dht.ProtocolPrefix(protocol.ID(config.RendezvousString)),
 		dht.Mode(dht.ModeServer))
 	if err != nil {
 		panic(err)
