@@ -19,6 +19,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 
+	"github.com/libp2p/go-libp2p/p2p/host/autorelay"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 
@@ -174,10 +175,19 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	boostrapInfo := make([]peer.AddrInfo, len(config.BootstrapPeers))
+	for _, peerAddr := range config.BootstrapPeers {
+		peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
+		boostrapInfo = append(boostrapInfo, *peerinfo)
+
+	}
 
 	host, err := libp2p.New(
 		libp2p.Identity(prvKey),
-		libp2p.EnableRelay(),
+		libp2p.EnableAutoRelay(
+			autorelay.WithStaticRelays(boostrapInfo),
+			autorelay.WithCircuitV1Support(),
+		),
 		libp2p.ListenAddrs([]multiaddr.Multiaddr(config.ListenAddresses)...),
 		libp2p.NATPortMap(),
 		libp2p.ResourceManager(rcm),
