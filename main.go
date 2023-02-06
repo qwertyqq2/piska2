@@ -195,29 +195,12 @@ func main() {
 
 	log.Println("Loading peers...")
 
-	bootstrapPeersString := []string{
-		"/ip4/104.131.131.82/tcp/4001/ipfs/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
-		"/ip4/104.236.179.241/tcp/4001/ipfs/QmSoLPppuBtQSGwKDZT2M73ULpjvfd3aZ6ha4oFGL1KrGM",
-		"/ip4/104.236.76.40/tcp/4001/ipfs/QmSoLV4Bbm51jM9C4gDYZQ9Cy3U6aXMJDAbzgu2fzaDs64",
-		"/ip4/128.199.219.111/tcp/4001/ipfs/QmSoLSafTMBsPKadTEgaXctDQVcqN88CNLHXMkTNwMKPnu",
-		"/ip4/178.62.158.247/tcp/4001/ipfs/QmSoLer265NRgSp2LA3dPaeykiS1J6DifTC88f5uVQKNAd",
-	}
-
-	bootstrapPeers := make([]maddr.Multiaddr, len(bootstrapPeersString))
-
-	for i, bps := range bootstrapPeersString {
-		bootstrapPeers[i], err = multiaddr.NewMultiaddr(fmt.Sprintf(bps))
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
 	var wg sync.WaitGroup
 	log.Println("Boostrap address")
-	for _, peerAddr := range bootstrapPeers {
+	for _, peerAddr := range config.BootstrapPeers {
 		log.Println(peerAddr.String())
 	}
-	for _, peerAddr := range bootstrapPeers {
+	for _, peerAddr := range config.BootstrapPeers {
 		peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
 		wg.Add(1)
 		go func() {
