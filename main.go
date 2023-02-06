@@ -19,6 +19,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
+
 	"github.com/libp2p/go-libp2p/core/protocol"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
@@ -159,17 +162,31 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	limiterCfg, err := os.Open("limiterCfg.json")
+	if err != nil {
+		panic(err)
+	}
+	limiter, err := rcmgr.NewDefaultLimiterFromJSON(limiterCfg)
+	if err != nil {
+		panic(err)
+	}
+	rcm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		panic(err)
+	}
+
 	host, err := libp2p.New(
 		libp2p.Identity(prvKey),
 		libp2p.EnableRelay(),
 		libp2p.ListenAddrs([]multiaddr.Multiaddr(config.ListenAddresses)...),
 		libp2p.NATPortMap(),
+		libp2p.ResourceManager(rcm),
 	)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("Host created. We are:", host.ID())
-	log.Printf("'-peer %s/p2p/%s' on another console.\n", host.Addrs()[0].String(), host.ID().Pretty())
+	logger.Println("Host created. We are:", host.ID())
+	logger.Printf("'-peer %s/p2p/%s' on another console.\n", host.Addrs()[0].String(), host.ID().Pretty())
 	for _, a := range host.Addrs() {
 		fmt.Println(a.String())
 	}
@@ -182,7 +199,6 @@ func main() {
 	kademliaDHT, err := dht.New(
 		ctx,
 		host,
-		//dht.ProtocolPrefix(protocol.ID(config.RendezvousString)),
 		dht.Mode(dht.ModeServer))
 	if err != nil {
 		panic(err)
@@ -209,24 +225,19 @@ func main() {
 				logger.Println(err)
 			} else {
 				log.Println("Connection established with bootstrap node:", *peerinfo)
-				// stream, err := host.NewStream(ctx, peerinfo.ID, protocol.ID(config.ProtocolID))
-
-				// if err != nil {
-				// 	log.Println("Connection failed:", err)
-				// } else {
-				// 	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-				// 	go writeData(rw)
-				// 	go readData(rw)
-				// }
-				// log.Println("Connected to:", peerinfo.ID.Pretty())
+				_, err = client.Reserve(context.Background(), host, *peerinfo)
+				if err != nil {
+					log.Printf("host failed to receive a relay reservation from relay. %v", err)
+				} else {
+					log.Println("Connection established with relay node")
+				}
 			}
 		}()
 	}
 	wg.Wait()
 	c, _ := cid.NewPrefixV1(cid.Raw, multihash.SHA2_256).Sum([]byte("meet me here"))
 
-	tctx, _ := context.WithTimeout(ctx, time.Second*40)
+	tctx, _ := context.WithTimeout(ctx, time.Second*120)
 	if err := kademliaDHT.Provide(tctx, c, true); err != nil {
 		panic(err)
 	}
@@ -235,6 +246,9 @@ func main() {
 		panic(err)
 	}
 	log.Printf("Found %d peers!\n", len(peers))
+	for _, p := range peers {
+		fmt.Println(p.Addrs)
+	}
 
 	log.Println("Announcing ourselves...")
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
@@ -258,8 +272,7 @@ func main() {
 		log.Println("Found peer:", peer)
 
 		log.Println("Connecting to:", peer)
-		stream, err := host.NewStream(ctx, peer.ID, protocol.ID(config.ProtocolID))
-
+		stream, err := host.NewStream(network.WithUseTransient(context.Background(), config.ProtocolID), peer.ID, protocol.ID(config.ProtocolID))
 		if err != nil {
 			log.Println("Connection failed:", err)
 			continue
@@ -272,17 +285,17 @@ func main() {
 		log.Println("Connected to:", peer)
 	}
 	log.Println("Chan closed")
-	var peerInfos []string
-	for _, peerID := range kademliaDHT.RoutingTable().ListPeers() {
-		peerInfo := host.Peerstore().PeerInfo(peerID)
-		peerInfos = append(peerInfos, peerInfo.Addrs[0].String())
-	}
-	for _, pif := range peerInfos {
-		log.Println(pif)
-	}
+	// var peerInfos []string
+	// for _, peerID := range kademliaDHT.RoutingTable().ListPeers() {
+	// 	peerInfo := host.Peerstore().PeerInfo(peerID)
+	// 	peerInfos = append(peerInfos, peerInfo.Addrs[0].String())
+	// }
+	// for _, pif := range peerInfos {
+	// 	log.Println(pif)
+	// }
 	log.Println("Wait")
 	select {}
 }
 
-///ip4/192.168.202.229/tcp/7000
-///ip4/127.0.0.1/tcp/7000
+///QmaMzqsFed4fKe6ZvnvonMJSPtKrgLfzUxukSRabYSZNK6
+///QmdT75ooN5fTLB2qrBvZ2nfLPZFS9M3vmCrGZb1i4KwhK6

@@ -1,0 +1,10 @@
+{
+    "System": {
+        "StreamsInbound": 4096,
+        "StreamsOutbound": 32768,
+        "Conns": 64000,
+        "ConnsInbound": 512,
+        "ConnsOutbound": 32768,
+        "FD": 64000
+    }
+}
