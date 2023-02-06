@@ -10,3 +10,17 @@ log: 2023/02/06 08:16:33 Host created. We are: QmccaXeHhoKeso2nRePF363B6j3Vm8Jib
 log: 2023/02/06 08:16:33 '-peer /ip4/192.168.1.95/tcp/7000/p2p/QmccaXeHhoKeso2nRePF363B6j3Vm8JibnimeWZdcrHfce' on another console.
 log: 2023/02/06 08:18:58 Host created. We are: QmeyneXgDjgiHAKFmCrqVo5rmvuSbp4WCVvbD3De7DrrV2
 log: 2023/02/06 08:18:58 '-peer /ip4/192.168.202.229/tcp/7000/p2p/QmeyneXgDjgiHAKFmCrqVo5rmvuSbp4WCVvbD3De7DrrV2' on another console.
+log: 2023/02/06 08:40:31 Host created. We are: QmaFMvX7xKE6A6XXm76BkjWuZzDC21JcTzAeojaawZTqme
+log: 2023/02/06 08:40:31 '-peer /ip4/192.168.202.229/tcp/7000/p2p/QmaFMvX7xKE6A6XXm76BkjWuZzDC21JcTzAeojaawZTqme' on another console.
+log: 2023/02/06 08:43:18 Host created. We are: QmRhnnqHHCXYofvc7KYj2JkZEBuufQeG5z3NnKcM6ECEYW
+log: 2023/02/06 08:43:18 '-peer /ip4/192.168.202.229/tcp/7000/p2p/QmRhnnqHHCXYofvc7KYj2JkZEBuufQeG5z3NnKcM6ECEYW' on another console.
+log: 2023/02/06 08:43:23 failed to dial QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ:
+  * [/ip4/104.131.131.82/tcp/4001] dial tcp4 0.0.0.0:7000->104.131.131.82:4001: i/o timeout
+log: 2023/02/06 08:43:38 no good addresses
+log: 2023/02/06 08:43:38 no good addresses
+log: 2023/02/06 08:43:38 no good addresses
+log: 2023/02/06 08:43:38 no good addresses
+log: 2023/02/06 08:43:54 Host created. We are: QmRGb4Yvwtbxf362Dffo5EeZyHSYXhKjBEbi69xkVd7Tnv
+log: 2023/02/06 08:43:54 '-peer /ip4/192.168.202.229/tcp/7000/p2p/QmRGb4Yvwtbxf362Dffo5EeZyHSYXhKjBEbi69xkVd7Tnv' on another console.
+log: 2023/02/06 10:40:31 Host created. We are: QmZAkUeSZajo89kYoYaokSC7kMia9M1EBjtqKPCyyAfn9L
+log: 2023/02/06 10:40:31 '-peer /ip4/192.168.1.95/tcp/6666/p2p/QmZAkUeSZajo89kYoYaokSC7kMia9M1EBjtqKPCyyAfn9L' on another console.

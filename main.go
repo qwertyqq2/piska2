@@ -176,9 +176,9 @@ func main() {
 		panic(err)
 	}
 	boostrapInfo := make([]peer.AddrInfo, len(config.BootstrapPeers))
-	for _, peerAddr := range config.BootstrapPeers {
+	for i, peerAddr := range config.BootstrapPeers {
 		peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
-		boostrapInfo = append(boostrapInfo, *peerinfo)
+		boostrapInfo[i] = *peerinfo
 
 	}
 
