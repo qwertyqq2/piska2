@@ -10,7 +10,9 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p/core/discovery"
@@ -20,11 +22,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
-	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/multiformats/go-multiaddr"
 	maddr "github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multihash"
 )
 
 type addrList []maddr.Multiaddr
@@ -159,27 +161,24 @@ func main() {
 	}
 	host, err := libp2p.New(
 		libp2p.Identity(prvKey),
-		libp2p.DefaultConnectionManager,
-		libp2p.ChainOptions(
-			libp2p.Transport(tcp.NewTCPTransport),
-		),
+		libp2p.EnableRelay(),
 		libp2p.ListenAddrs([]multiaddr.Multiaddr(config.ListenAddresses)...),
 		libp2p.NATPortMap(),
 	)
 	if err != nil {
 		panic(err)
 	}
-	logger.Println("Host created. We are:", host.ID())
-	logger.Printf("'-peer %s/p2p/%s' on another console.\n", host.Addrs()[0].String(), host.ID().Pretty())
+	log.Println("Host created. We are:", host.ID())
+	log.Printf("'-peer %s/p2p/%s' on another console.\n", host.Addrs()[0].String(), host.ID().Pretty())
 	for _, a := range host.Addrs() {
 		fmt.Println(a.String())
 	}
 
-	logger.Println("Handler stream set")
+	log.Println("Handler stream set")
 	host.SetStreamHandler(protocol.ID(config.ProtocolID), handleStream)
 
 	ctx := context.Background()
-	logger.Println("New Dht")
+	log.Println("New Dht")
 	kademliaDHT, err := dht.New(
 		ctx,
 		host,
@@ -189,19 +188,36 @@ func main() {
 		panic(err)
 	}
 
-	logger.Println("Bootstrapping the DHT")
+	log.Println("Bootstrapping the DHT")
 	if err = kademliaDHT.Bootstrap(ctx); err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Loading peers...")
+	log.Println("Loading peers...")
+
+	bootstrapPeersString := []string{
+		"/ip4/104.131.131.82/tcp/4001/ipfs/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
+		"/ip4/104.236.179.241/tcp/4001/ipfs/QmSoLPppuBtQSGwKDZT2M73ULpjvfd3aZ6ha4oFGL1KrGM",
+		"/ip4/104.236.76.40/tcp/4001/ipfs/QmSoLV4Bbm51jM9C4gDYZQ9Cy3U6aXMJDAbzgu2fzaDs64",
+		"/ip4/128.199.219.111/tcp/4001/ipfs/QmSoLSafTMBsPKadTEgaXctDQVcqN88CNLHXMkTNwMKPnu",
+		"/ip4/178.62.158.247/tcp/4001/ipfs/QmSoLer265NRgSp2LA3dPaeykiS1J6DifTC88f5uVQKNAd",
+	}
+
+	bootstrapPeers := make([]maddr.Multiaddr, len(bootstrapPeersString))
+
+	for i, bps := range bootstrapPeersString {
+		bootstrapPeers[i], err = multiaddr.NewMultiaddr(fmt.Sprintf(bps))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	var wg sync.WaitGroup
-	logger.Println("Boostrap address")
-	for _, peerAddr := range config.BootstrapPeers {
-		logger.Println(peerAddr.String())
+	log.Println("Boostrap address")
+	for _, peerAddr := range bootstrapPeers {
+		log.Println(peerAddr.String())
 	}
-	for _, peerAddr := range config.BootstrapPeers {
+	for _, peerAddr := range bootstrapPeers {
 		peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
 		wg.Add(1)
 		go func() {
@@ -209,7 +225,7 @@ func main() {
 			if err := host.Connect(ctx, *peerinfo); err != nil {
 				logger.Println(err)
 			} else {
-				logger.Println("Connection established with bootstrap node:", *peerinfo)
+				log.Println("Connection established with bootstrap node:", *peerinfo)
 				// stream, err := host.NewStream(ctx, peerinfo.ID, protocol.ID(config.ProtocolID))
 
 				// if err != nil {
@@ -225,13 +241,24 @@ func main() {
 		}()
 	}
 	wg.Wait()
+	c, _ := cid.NewPrefixV1(cid.Raw, multihash.SHA2_256).Sum([]byte("meet me here"))
 
-	logger.Println("Announcing ourselves...")
+	tctx, _ := context.WithTimeout(ctx, time.Second*40)
+	if err := kademliaDHT.Provide(tctx, c, true); err != nil {
+		panic(err)
+	}
+	peers, err := kademliaDHT.FindProviders(tctx, c)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("Found %d peers!\n", len(peers))
+
+	log.Println("Announcing ourselves...")
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 	dutil.Advertise(ctx, routingDiscovery, config.RendezvousString)
-	logger.Println("Successfully announced!")
+	log.Println("Successfully announced!")
 
-	logger.Println("Searching for other peers...")
+	log.Println("Searching for other peers...")
 	peerChan, err := routingDiscovery.FindPeers(
 		ctx,
 		config.RendezvousString,
@@ -245,13 +272,13 @@ func main() {
 		if peer.ID == host.ID() {
 			continue
 		}
-		logger.Println("Found peer:", peer)
+		log.Println("Found peer:", peer)
 
-		logger.Println("Connecting to:", peer)
+		log.Println("Connecting to:", peer)
 		stream, err := host.NewStream(ctx, peer.ID, protocol.ID(config.ProtocolID))
 
 		if err != nil {
-			logger.Println("Connection failed:", err)
+			log.Println("Connection failed:", err)
 			continue
 		} else {
 			rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
@@ -259,16 +286,16 @@ func main() {
 			go writeData(rw)
 			go readData(rw)
 		}
-		logger.Println("Connected to:", peer)
+		log.Println("Connected to:", peer)
 	}
-	logger.Println("Chan closed")
+	log.Println("Chan closed")
 	var peerInfos []string
 	for _, peerID := range kademliaDHT.RoutingTable().ListPeers() {
 		peerInfo := host.Peerstore().PeerInfo(peerID)
 		peerInfos = append(peerInfos, peerInfo.Addrs[0].String())
 	}
 	for _, pif := range peerInfos {
-		logger.Println(pif)
+		log.Println(pif)
 	}
 	log.Println("Wait")
 	select {}
